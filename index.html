@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Stock Dashboard</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial;
+            background: linear-gradient(to right, #667eea, #764ba2);
+            color: white;
+            text-align: center;
+        }
+
+        h1 {
+            margin-top: 20px;
+        }
+
+        select, button {
+            padding: 10px;
+            margin: 8px;
+            border-radius: 8px;
+            border: none;
+            font-size: 14px;
+        }
+
+        button {
+            background-color: #ff7a18;
+            color: white;
+            cursor: pointer;
+        }
+
+        /* Button states */
+        button.loading {
+            background-color: #6c757d !important;
+        }
+
+        button.loaded {
+            background-color: #28a745 !important;
+        }
+
+        button.compare-active {
+            background-color: #17a2b8 !important;
+        }
+
+        .charts {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            width: 95%;
+            margin: 20px auto;
+        }
+
+        .chart-box {
+            width: 45%;
+            height: 400px;
+            background: white;
+            border-radius: 12px;
+            padding: 15px;
+        }
+
+        canvas {
+            width: 100% !important;
+            height: 300px !important;
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>📊 Stock Dashboard</h1>
+
+<select id="stock1">
+    <option value="TCS">TCS</option>
+    <option value="INFY">INFY</option>
+    <option value="RELIANCE">RELIANCE</option>
+</select>
+
+<select id="stock2" style="display:none;"></select>
+
+<br>
+
+<button id="loadBtn" onclick="loadData()">Load Data</button>
+<button id="compareBtn" onclick="enableCompare()">Compare</button>
+
+<div class="charts">
+    <div class="chart-box">
+        <h3 id="title1"></h3>
+        <canvas id="chart1"></canvas>
+    </div>
+
+    <div class="chart-box" id="chart2Box" style="display:none;">
+        <h3 id="title2"></h3>
+        <canvas id="chart2"></canvas>
+    </div>
+</div>
+
+<script>
+let chart1, chart2;
+
+const companies = ["TCS", "INFY", "RELIANCE"];
+
+const loadBtn = document.getElementById("loadBtn");
+const compareBtn = document.getElementById("compareBtn");
+
+const stock1 = document.getElementById("stock1");
+const stock2 = document.getElementById("stock2");
+
+stock1.addEventListener("change", resetButtons);
+stock2.addEventListener("change", handleSecondSelection);
+
+function resetButtons() {
+    loadBtn.innerText = "Load Data";
+    loadBtn.classList.remove("loaded", "loading");
+
+    compareBtn.innerText = "Compare";
+    compareBtn.classList.remove("compare-active");
+
+    document.getElementById("chart2Box").style.display = "none";
+    stock2.style.display = "none";
+}
+
+function loadData() {
+    const symbol = stock1.value;
+
+    loadBtn.innerText = "Loading...";
+    loadBtn.classList.add("loading");
+
+    loadChart(symbol, "chart1", "title1");
+
+    setTimeout(() => {
+        loadBtn.innerText = "Loaded ✅";
+        loadBtn.classList.remove("loading");
+        loadBtn.classList.add("loaded");
+    }, 500);
+}
+
+function enableCompare() {
+    const stock1Value = stock1.value;
+
+    stock2.style.display = "inline-block";
+    stock2.innerHTML = "";
+
+    companies.forEach(c => {
+        if (c !== stock1Value) {
+            let option = document.createElement("option");
+            option.value = c;
+            option.text = c;
+            stock2.appendChild(option);
+        }
+    });
+
+    document.getElementById("chart2Box").style.display = "block";
+
+}
+
+function handleSecondSelection() {
+    const symbol = stock2.value;
+
+    loadChart(symbol, "chart2", "title2");
+
+    compareBtn.innerText = "Compared ✅";
+    compareBtn.classList.add("compare-active");
+}
+
+function loadChart(symbol, chartId, titleId) {
+    fetch(`http://127.0.0.1:8000/data/${symbol}`)
+        .then(res => res.json())
+        .then(data => {
+
+            const dates = data.map(d => {
+                const date = new Date(d.Date);
+                return date.toLocaleDateString("en-GB", {
+                    day: "2-digit",
+                    month: "short"
+                });
+            });
+
+            const prices = data.map(d => d.Close);
+
+            const ctx = document.getElementById(chartId).getContext("2d");
+
+            if (chartId === "chart1" && chart1) chart1.destroy();
+            if (chartId === "chart2" && chart2) chart2.destroy();
+
+            const newChart = new Chart(ctx, {
+                type: "line",
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: symbol + " Price",
+                        data: prices,
+                        borderWidth: 2,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    layout: {
+                        padding: 0   
+                    },
+
+                    elements: {
+                        line: {
+                            tension: 0.3
+                        },
+                        point: {
+                            radius: 2   
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid:{
+                                display:false
+                            },
+                            ticks: {
+                                maxTicksLimit: 6,
+                                autoSkip: true
+                            }
+                        },
+                        y: {
+                            beginAtZero: false, 
+                            grace: "0%",     
+                            suggestedMin: Math.min(...prices),
+                            suggestedMax: Math.max(...prices),   
+                            ticks: {
+                                padding: 2
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                padding: 10
+                            }
+                        }
+                    }
+                }
+            });
+
+            document.getElementById(titleId).innerText = symbol;
+
+            if (chartId === "chart1") chart1 = newChart;
+            else chart2 = newChart;
+        });
+}
+</script>
+
+</body>
+</html>
