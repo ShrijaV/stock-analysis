@@ -70,7 +70,7 @@ stock-analysis/
 ### 1. Clone the repository
 
 ```
-git clone <your-repo-link>
+git clone <https://github.com/ShrijaV/stock-analysis>
 cd stock-analysis
 ```
 
